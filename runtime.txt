@@ -1,0 +1,10 @@
+create a synthetic dataset of 8000 rows for Personalized azithromycin treatment rules for children with watery diarrhea using machine learning
+
+
+
+with columns - patient characteristics, treatment given, duration , severity, microbiology/antibiotic resistance and others necesaary...
+
+and we need to feature engineere these-
+age groups, nutritional status(MUAC), travel history,previous infections, local antimicrobial resistence indices, and outcome would be patient specific benefit probabilities for azithromycin treatment 
+
+also we need to clean missing values , encode categorical data(eg. dehydration grade), normalize continuous variables,and impute with clinicaaly appropriate method

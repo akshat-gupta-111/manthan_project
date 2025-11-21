@@ -3,125 +3,107 @@ import numpy as np
 import random
 
 # Set seed for reproducibility
-np.random.seed(42)
+np.random.seed(101)
 
-def generate_synthetic_diarrhea_data(n_rows=8000):
+def generate_clinical_dataset(n_rows=10000):
     data = []
     
-    pathogens = ['Rotavirus', 'Norovirus', 'E. coli (ETEC)', 'Shigella', 'Cholera', 'Unknown']
+    # Domain Definitions
+    pathogens = ['Rotavirus', 'Norovirus', 'Shigella', 'E. coli (ETEC)', 'Cholera', 'Unknown']
+    # Dehydration is ordinal: None < Some < Severe
     dehydration_levels = ['None', 'Some', 'Severe']
-    travel_options = ['No Travel', 'Domestic', 'International']
+    travel_opts = ['None', 'Domestic', 'International']
     
     for _ in range(n_rows):
-        # --- 1. Patient Characteristics ---
-        age_months = np.random.randint(1, 12 * 12) # 1 month to 12 years
+        # --- 1. Basic Demographics ---
+        age_months = np.random.randint(1, 144) # 1 month to 12 years
         sex = np.random.choice(['Male', 'Female'])
         
-        # Weight correlates with age (approximate growth curve with noise)
-        base_weight = 3.5 + (age_months * 0.25) 
-        weight_kg = round(np.random.normal(base_weight, 2.0), 2)
-        weight_kg = max(2.5, weight_kg) # Ensure no negative/tiny weights
-
-        # --- 2. Age Groups (Derived) ---
-        if age_months < 12:
-            age_group = 'Infant'
-        elif age_months < 36:
-            age_group = 'Toddler'
-        else:
-            age_group = 'Child'
-
-        # --- 3. Nutritional Status (MUAC) ---
-        # Mid-Upper Arm Circumference in cm. < 11.5 is severe acute malnutrition
-        muac_cm = round(np.random.normal(14.5, 1.5), 1)
-        muac_cm = max(9.0, min(20.0, muac_cm)) # Clip reasonable range
+        # Weight correlates with age (approximate)
+        weight_kg = max(2.5, np.random.normal(3.5 + (age_months * 0.25), 2.0))
+        
+        # --- 2. Feature Engineering: Nutritional Status (MUAC) ---
+        # MUAC (cm) correlates with weight/age status. 
+        # <11.5cm = Severe Acute Malnutrition (SAM)
+        muac_cm = np.random.normal(14.5, 1.8)
+        muac_cm = max(9.0, min(22.0, muac_cm))
+        
+        # --- 3. Feature Engineering: Age Groups ---
+        if age_months < 12: age_group = 'Infant'
+        elif age_months < 60: age_group = 'Toddler'
+        else: age_group = 'Child'
 
         # --- 4. Clinical Presentation ---
-        duration_days = np.random.randint(1, 14)
-        severity = np.random.choice(dehydration_levels, p=[0.2, 0.5, 0.3])
-        fever = np.random.choice([0, 1], p=[0.4, 0.6]) # 1 = Yes
+        duration_days = np.random.randint(1, 10)
+        # Correlate severity with duration and malnutrition
+        severity_prob = [0.5, 0.3, 0.2] if muac_cm > 12.5 else [0.2, 0.4, 0.4]
+        dehydration = np.random.choice(dehydration_levels, p=severity_prob)
         
-        # --- 5. History ---
-        travel_history = np.random.choice(travel_options, p=[0.7, 0.2, 0.1])
-        previous_infections = np.random.poisson(1) # Count of recent infections
+        # --- 5. History & Context ---
+        travel_history = np.random.choice(travel_opts, p=[0.8, 0.15, 0.05])
+        previous_infections = np.random.poisson(1)
         
-        # --- 6. Microbiology & Resistance ---
-        # Bacteria = High Azithro utility; Virus = Low utility
-        pathogen = np.random.choice(pathogens, p=[0.3, 0.2, 0.25, 0.15, 0.05, 0.05])
+        # Local Antimicrobial Resistance (AMR) Index (0.0 = Low resistance, 1.0 = High)
+        local_amr_index = round(np.random.uniform(0.1, 0.7), 2)
         
-        is_bacterial = pathogen in ['E. coli (ETEC)', 'Shigella', 'Cholera']
+        # --- 6. Microbiology ---
+        pathogen = np.random.choice(pathogens, p=[0.35, 0.15, 0.15, 0.20, 0.05, 0.10])
+        is_bacterial = pathogen in ['Shigella', 'E. coli (ETEC)', 'Cholera']
         
-        # Is the specific bug resistant?
-        pathogen_resistance = np.random.choice(['Sensitive', 'Resistant'], p=[0.7, 0.3])
+        # Antibiotic Resistance of the specific bug
+        is_resistant_strain = np.random.choice([0, 1], p=[0.7, 0.3]) # 1 = Resistant
         
-        # Local community resistance index (0.0 to 1.0)
-        local_amr_index = round(np.random.uniform(0.1, 0.6), 2)
-
-        # --- 7. Treatment Given ---
-        treatment_given = np.random.choice(['Azithromycin', 'Placebo/ORS Only'], p=[0.5, 0.5])
-
-        # --- 8. Calculating Benefit Probability (The Target Variable) ---
-        # This logic creates the "Signal" for the ML model to learn.
+        # --- 7. Target Variable: Benefit Probability ---
+        # Base calculation logic
+        benefit = 0.1 # Baseline (low benefit)
         
-        # Start with a base probability of benefit
-        benefit_prob = 0.1 
-        
-        # Logic: Azithromycin helps bacteria, but not if resistant, and not viruses.
-        if treatment_given == 'Azithromycin':
-            if is_bacterial:
-                benefit_prob += 0.6
-                if pathogen_resistance == 'Resistant':
-                    benefit_prob -= 0.4  # Resistance drastically reduces benefit
-            else:
-                # Viral case: Antibiotics might actually harm (microbiome) or do nothing
-                benefit_prob -= 0.05 
-        
-        # Adjust for Local Resistance (General environmental factor)
-        benefit_prob -= (local_amr_index * 0.2)
-        
-        # Adjust for Malnutrition (Lower MUAC reduces recovery chance)
-        if muac_cm < 11.5:
-            benefit_prob -= 0.15
-        elif muac_cm < 12.5:
-            benefit_prob -= 0.05
+        if is_bacterial:
+            benefit += 0.6 # Big jump for bacteria
+            if is_resistant_strain == 1:
+                benefit -= 0.4 # Resistance kills efficacy
+            elif local_amr_index > 0.5:
+                benefit -= 0.1 # Environmental resistance factor
+        else:
+            # Viral causes
+            benefit -= 0.1 # Antibiotics not recommended
             
-        # Adjust for Severity (Severe cases might benefit more from aggressive treatment)
-        if severity == 'Severe' and is_bacterial:
-            benefit_prob += 0.1
-            
-        # Add some random noise (biological variability)
-        benefit_prob += np.random.normal(0, 0.05)
+        # Clinical Severity Adjustments
+        if dehydration == 'Severe': benefit += 0.15 # Higher urgency
+        if muac_cm < 11.5: benefit += 0.1 # High risk patient needs aggressive care
         
-        # Clip probability between 0 and 1
-        benefit_prob = max(0.0, min(1.0, benefit_prob))
-        
-        row = {
+        # Cap between 0 and 1 and add noise
+        benefit = max(0.0, min(1.0, benefit + np.random.normal(0, 0.02)))
+
+        data.append({
             'Age_Months': age_months,
             'Age_Group': age_group,
             'Sex': sex,
-            'Weight_kg': weight_kg,
-            'MUAC_cm': muac_cm,
-            'Nutritional_Status': 'Malnourished' if muac_cm < 12.5 else 'Normal',
+            'Weight_kg': round(weight_kg, 2),
+            'MUAC_cm': round(muac_cm, 1),
+            'Dehydration_Severity': dehydration,
             'Duration_Days': duration_days,
-            'Dehydration_Severity': severity,
-            'Fever': fever,
             'Travel_History': travel_history,
-            'Previous_Infections_Count': previous_infections,
-            'Pathogen_Type': pathogen,
-            'Is_Bacterial': 1 if is_bacterial else 0,
-            'Pathogen_Resistance': pathogen_resistance,
+            'Previous_Infections': previous_infections,
             'Local_AMR_Index': local_amr_index,
-            'Treatment_Given': treatment_given,
-            'Benefit_Probability': round(benefit_prob, 4) # TARGET VARIABLE
-        }
-        data.append(row)
+            'Pathogen': pathogen,
+            'Is_Resistant_Strain': is_resistant_strain,
+            'Treatment_Benefit_Probability': round(benefit, 4)
+        })
 
-    return pd.DataFrame(data)
+    df = pd.DataFrame(data)
+    
+    # --- INTRODUCE MISSING VALUES (To simulate real world data) ---
+    # Randomly remove 10% of Dehydration_Severity and MUAC
+    mask1 = np.random.rand(len(df)) < 0.1
+    df.loc[mask1, 'Dehydration_Severity'] = np.nan
+    
+    mask2 = np.random.rand(len(df)) < 0.05
+    df.loc[mask2, 'MUAC_cm'] = np.nan
+    
+    return df
 
-# Generate the data
-df = generate_synthetic_diarrhea_data(8000)
-
-# Show first few rows
-print(df.head())
-
-# Optional: Save to CSV
-df.to_csv('azithromycin_pediatric_data.csv', index=False)
+# Generate Raw Data
+raw_df = generate_clinical_dataset(8000)
+print("Raw Data Generated. Missing values introduced.")
+print(raw_df.isnull().sum())
+raw_df.to_csv('azithromycin_pediatric_data.csv', index=False)
