@@ -5,8 +5,8 @@ import numpy as np
 app = Flask(__name__)
 
 
-model = pickle.load(open('model.pkl', 'rb'))
-encoders = pickle.load(open('encoders.pkl', 'rb'))
+model = pickle.load(open('model/model.pkl', 'rb'))
+encoders = pickle.load(open('model/encoders.pkl', 'rb'))
 
 @app.route('/')
 def home():
