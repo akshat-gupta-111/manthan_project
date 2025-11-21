@@ -3,21 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ML Hackathon Project</title>
+    <title>Azithromycin Treatment Predictor</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>Radhe Radhe</h1>
-        <form id="prediction-form">
-            <input type="number" step="0.1" name="feature1" placeholder="Feature 1" required>
-            <input type="number" step="0.1" name="feature2" placeholder="Feature 2" required>
-            <input type="number" step="0.1" name="feature3" placeholder="Feature 3" required>
-            <input type="number" step="0.1" name="feature4" placeholder="Feature 4" required>
-            <button type="submit">Predict</button>
-        </form>
-        <div id="result"></div>
+
+<div class="container">
+    <h2>Diarrhea Treatment Predictor</h2>
+    <p>Enter patient details to estimate benefit of Azithromycin.</p>
+
+    <form id="predictForm">
+        <label>Age (Months):</label>
+        <input type="number" name="age_months" required min="6" max="60">
+
+        <label>Weight (kg):</label>
+        <input type="number" name="weight_kg" required step="0.1">
+
+        <label>MUAC (cm):</label>
+        <input type="number" name="muac_cm" required step="0.1">
+
+        <label>Dehydration Grade:</label>
+        <select name="dehydration_grade">
+            <option value="None">None</option>
+            <option value="Some">Some</option>
+            <option value="Severe">Severe</option>
+        </select>
+
+        <label>Pathogen Identified:</label>
+        <select name="pathogen_identified">
+            <option value="Rotavirus">Rotavirus</option>
+            <option value="ETEC">ETEC</option>
+            <option value="Shigella">Shigella</option>
+            <option value="Vibrio">Vibrio</option>
+            <option value="Unknown">Unknown</option>
+        </select>
+
+        <label>Antibiotic Resistance Detected?</label>
+        <select name="azithro_resistance_detected">
+            <option value="0">No (Sensitive)</option>
+            <option value="1">Yes (Resistant)</option>
+        </select>
+
+        <label>Treatment Group (Simulation):</label>
+        <select name="treatment_group">
+            <option value="Azithromycin">Azithromycin</option>
+            <option value="Placebo">Placebo</option>
+        </select>
+
+        <button type="submit">Predict Outcome</button>
+    </form>
+
+    <div id="result" class="hidden">
+        <h3>Result:</h3>
+        <p id="prediction-text"></p>
+        <small id="probability-text"></small>
     </div>
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</div>
+
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>

@@ -1,20 +1,43 @@
 import pandas as pd
-from sklearn.datasets import load_iris
-from sklearn.ensemble import RandomForestClassifier
 import pickle
-import os
+from xgboost import XGBClassifier
+from sklearn.preprocessing import LabelEncoder
 
-data = load_iris()
-X = pd.DataFrame(data.data, columns=data.feature_names)
-y = data.target
+df = pd.read_csv('/Users/akshatgupta111/Documents/manthan_project/data/data_final.csv')
 
-rf = RandomForestClassifier(n_estimators=10, max_depth=5)
-rf.fit(X, y)
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-file_path = os.path.join(current_dir, 'model.pkl')
 
-with open(file_path, 'wb') as f:
-    pickle.dump(rf, f)
+df['muac_cm'] = df['muac_cm'].fillna(df['muac_cm'].median())
 
-print(f"Model saved to {file_path}")
+df['target'] = (df['hours_to_resolution'] < 48).astype(int)
+
+encoders_dict = {} 
+categorical_cols = ['dehydration_grade', 'pathogen_identified', 'treatment_group']
+
+for col in categorical_cols:
+    
+    df[col] = df[col].fillna('None')
+    le = LabelEncoder()
+    df[col] = le.fit_transform(df[col].astype(str))
+    encoders_dict[col] = {str(k): int(v) for k, v in zip(le.classes_, le.transform(le.classes_))}
+
+
+
+features = ['age_months', 'weight_kg', 'muac_cm', 'dehydration_grade', 
+            'pathogen_identified', 'azithro_resistance_detected', 'treatment_group']
+
+X = df[features]
+y = df['target']
+
+model = XGBClassifier(n_estimators=100, random_state=42, eval_metric='logloss')
+model.fit(X, y)
+
+
+
+with open('model.pkl', 'wb') as f:
+    pickle.dump(model, f)
+
+with open('encoders.pkl', 'wb') as f:
+    pickle.dump(encoders_dict, f)
+
+print("Success! 'model.pkl' and 'encoders.pkl' are ready for your app.")

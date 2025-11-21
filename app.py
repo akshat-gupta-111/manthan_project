@@ -1,13 +1,12 @@
 from flask import Flask, request, jsonify, render_template
 import pickle
 import numpy as np
-import os
 
 app = Flask(__name__)
 
-model_path = os.path.join('model', 'model.pkl')
-with open(model_path, 'rb') as f:
-    model = pickle.load(f)
+
+model = pickle.load(open('model.pkl', 'rb'))
+encoders = pickle.load(open('encoders.pkl', 'rb'))
 
 @app.route('/')
 def home():
@@ -15,12 +14,41 @@ def home():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    data = request.get_json()
-    features = [float(x) for x in data.values()]
-    final_features = [np.array(features)]
-    prediction = model.predict(final_features)
-    output = int(prediction[0])
-    return jsonify({'prediction': output})
+    if not model:
+        return jsonify({'error': 'Model not loaded'}), 500
+
+    try:
+        data = request.json
+        
+        
+        age = float(data['age_months'])
+        weight = float(data['weight_kg'])
+        muac = float(data['muac_cm'])
+        
+        
+        dehydration = encoders['dehydration_grade'][data['dehydration_grade']]
+        pathogen = encoders['pathogen_identified'][data['pathogen_identified']]
+        treatment = encoders['treatment_group'][data['treatment_group']]
+        
+        
+        resistance = int(data['azithro_resistance_detected'])
+        
+        
+        features = np.array([[age, weight, muac, dehydration, pathogen, resistance, treatment]])
+        
+        # Predict
+        prediction = model.predict(features)[0]
+        probability = model.predict_proba(features)[0][1]
+        
+        result_text = "Rapid Recovery Likely (<48hrs)" if prediction == 1 else "Slow Recovery Expected (>48hrs)"
+        
+        return jsonify({
+            'prediction_text': result_text,
+            'probability': f"{probability*100:.1f}% confidence"
+        })
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return jsonify({'error': 'An error occurred during prediction.'}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
