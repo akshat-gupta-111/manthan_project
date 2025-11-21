@@ -15,7 +15,7 @@ def home():
 @app.route('/predict', methods=['POST'])
 def predict():
     if not model:
-        return jsonify({'error': 'Model not loaded'}), 500
+        return jsonify({'error': 'Model not loaded'}), 
 
     try:
         data = request.json
@@ -44,7 +44,7 @@ def predict():
         
         return jsonify({
             'prediction_text': result_text,
-            'probability': f"{probability*100:.1f}% confidence"
+            'probability': f"{probability*100}% confidence"
         })
     except Exception as e:
         print(f"An error occurred: {e}")
